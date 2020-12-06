@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace vex2.data_structures
 {
@@ -37,78 +40,76 @@ namespace vex2.data_structures
     ///             
     /// </summary>
 
-    //68 bytes total.
+    //68 bytes total. Marshalling pads the 4 bytes necessary to fit into the timpani metadata format.
     public struct MetaData
     {
-        uint length;            //always 68
-        uint next;              //64 + this value = the offset of the NEXT banked file.
-        uint unid1;             //unidentified 4 bytes.
+        public uint length;            //always 68
+        public uint next;              //64 + this value = the offset of the NEXT banked file.
+        public uint unid1;             //unidentified 4 bytes.
 
-        ulong nil1;             //many bytes of 0s. I assume they are reserved or it is just padding for something.
-        ulong nil2;
-        ulong nil3;
-        ulong nil4;
-        ulong nil5;
-        ulong nil6;
+        public ulong nil1;             //many bytes of 0s. I assume they are reserved or it is just padding for something.
+        public ulong nil2;
+        public ulong nil3;
+        public ulong nil4;
+        //public uint nil5;
 
-        ushort identifier;      //File identification. 1 = .wav ; oV = .ogg ;
+        public ushort identifier;      //File identification. 1 = .wav ; oV = .ogg ;
 
-        ushort channels;        //All of these below (including this one) are 0 if the file is an ogg. These are basically the pieces of the .wav header that was stripped.
-        uint sampleRateMultBy2; //This needs divided by 2 to retrieve the proper samplerate. Multiply by 2 before writing it back to file.
-        uint unid2;             //These 6 bytes are unknown, but they do have values. Purposefully crash the game to examine the crash logs to maybe get a hint to what it is.
-        ushort unid3;
+        public ushort channels;        //All of these below (including this one) are 0 if the file is an ogg. These are basically the pieces of the .wav header that was stripped.
+        public uint sampleRate;        //This might need divided by 2 to retrieve the proper samplerate. Multiply by 2 before writing it back to file if that is the case.
+        public uint unid2;             //These 6 bytes are unknown, but they do have values. Purposefully crash the game to examine the crash logs to maybe get a hint to what it is.
+        public ushort unid3;
 
-        ushort wavBits;
-        uint nil7;              //More padded/reserved space.
+        public ushort wavBits;
+        public uint nil7;              //More padded/reserved space.
     };
 
     /// <summary>
+    /// [TESTED STRUCT CREATION]
     /// Holds the information for only 1 banked file **excluding** its table of contents entry.
     /// </summary>
     class TimpaniBankFile
     {
-        private byte[] RawMetadata
-        {
-            get { return RawMetadata; }
-            set
-            {
-                if (value.Length != 68)
-                    throw new Exception("The raw metadata is of incorrect length.");
-                RawMetadata = value;
-            }
-        }
-        private byte[] rawSoundFile;
+        private byte[] rawMetaData;
+        public byte[] rawSoundFile;
 
         public MetaData metaData;
         public bool isWav;
 
         public TimpaniBankFile(byte[] rawBankFile)
         {
-            throw new NotImplementedException();
+            rawMetaData = rawBankFile.Take(68).ToArray(); //first 68 bytes is the raw metadata.
+            rawSoundFile = rawBankFile.Skip(68).Take(rawBankFile.Length - 68).ToArray(); //take everything else. may be an off-by-one error.
+
+            //Build metadata struct.
+            MetaData meta = new MetaData();
+
+            meta.length = BitConverter.ToUInt32(rawMetaData.Take(4).ToArray(), 0);
+            meta.next = BitConverter.ToUInt32(rawMetaData.Skip(4).Take(4).ToArray(), 0);
+            meta.unid1 = BitConverter.ToUInt32(rawMetaData.Skip(8).Take(4).ToArray(), 0);
+
+            meta.nil1 = 0; //BitConverter.ToUInt32(RawMetadata.Skip(12).Take(36).ToArray(), 0);
+            meta.nil2 = 0;
+            meta.nil3 = 0;
+            meta.nil4 = 0;
+            //meta.nil5 = 0;
+
+            meta.identifier = BitConverter.ToUInt16(rawMetaData.Skip(48).Take(2).ToArray(), 0);
+
+            //wav header information. All 0s if the file is .ogg
+            meta.channels = BitConverter.ToUInt16(rawMetaData.Skip(50).Take(2).ToArray(), 0);
+            meta.sampleRate = BitConverter.ToUInt16(rawMetaData.Skip(52).Take(4).ToArray(), 0);
+            meta.unid2 = BitConverter.ToUInt16(rawMetaData.Skip(56).Take(4).ToArray(), 0);
+            meta.unid3 = BitConverter.ToUInt16(rawMetaData.Skip(60).Take(2).ToArray(), 0);
+            meta.wavBits = BitConverter.ToUInt16(rawMetaData.Skip(62).Take(2).ToArray(), 0);
+            meta.nil7 = 0;
+
+            metaData = meta;
+            isWav = (metaData.identifier == 1);
         }
 
         /// <summary>
-        /// Returns raw metadata bytes for writing.
-        /// </summary>
-        /// <returns></returns>
-        public byte[] GetRawMetData()
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Get a completed soundfile. Can be written to a file and be played using a media player. Also returns if it is a .wav file or not.
-        /// </summary>
-        /// <returns>
-        /// byte[] = Completed soundfile. Can be written to a file and be played using a media player.
-        /// bool = If the file is a .wav file or not. (if it is not a .wav file, then it is a .ogg file).
-        /// </returns>
-        public (byte[], bool) GetCompleteSoundFile()
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
+        /// [UNTESTED]
         /// Get the raw bankfile bytes useful for rewriting the timpani bank.
         /// </summary>
         /// <returns>
@@ -116,7 +117,10 @@ namespace vex2.data_structures
         /// </returns>
         public byte[] GetRawBankFile()
         {
-            throw new NotImplementedException();
+            byte[] rawBank = new byte[rawMetaData.Length + rawSoundFile.Length];
+            rawMetaData.CopyTo(rawBank, 0);
+            rawSoundFile.CopyTo(rawBank, rawMetaData.Length);
+            return rawBank;
         }
     }
 }

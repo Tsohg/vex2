@@ -1,15 +1,15 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using vex2.data_structures;
 
 namespace vex2.utils
 {
     class TimpaniBankBuilder
     {
-        public TimpaniBank timpaniBank;
-
+        private TimpaniBank timpaniBank;
         private uint offset = 0;
-        private FileManager fm;
+        private TimpIO io;
         ///
         /// Table of Contents Length (8 bytes) #
         /// Table of Contents Entry (24 bytes) [1 per table of contents length]
@@ -21,20 +21,20 @@ namespace vex2.utils
         ///     (4 bytes length of sound file)
         ///    
 
-        public TimpaniBankBuilder(FileManager fm)
+        public TimpaniBankBuilder(TimpIO io)
         {
-            this.fm = fm;
+            this.io = io;
         }
 
         /// <summary>
-        /// UNTESTED
+        /// [TESTED]
         /// Returns a completed TimpaniBank object from an input timpani_bank file.
         /// </summary>
         /// <returns></returns>
         public TimpaniBank BuildFromTimpaniBank()
         {
             timpaniBank = new TimpaniBank();
-            BinaryReader br = new BinaryReader(new FileStream(fm.inFilePath, FileMode.Open));
+            BinaryReader br = new BinaryReader(new FileStream(io.inFilePath, FileMode.Open));
 
             ulong tbcCount = ReadULong(ref br);
             TableOfContentsEntry[] entries = new TableOfContentsEntry[tbcCount];
@@ -46,20 +46,44 @@ namespace vex2.utils
                 entry.offset = ReadUInt(ref br);
                 entry.length = ReadUInt(ref br);
                 entries[i] = entry;
-                tbcCount = ReadULong(ref br); //should be 0.
+                ReadULong(ref br); //should be 0.
             }
 
-            //TODO: FINISH METHOD BY ASSOCIATING TBCE AND BANKFILEDATA BY INDEX, THEN BUILDING THE BANKFILE USING .ADDBANKFILE
+            Dictionary<TableOfContentsEntry, TimpaniBankFile> dict = 
+                new Dictionary<TableOfContentsEntry, TimpaniBankFile>();
+
+            ///TODO: This is the bottleneck of the application. Try to find an optimization later.
+            for (int i = 0; i < entries.Length; i++)
+            {
+                for (int j = 0; j < entries.Length; j++)
+                {
+                    if (entries[j].offset == offset)
+                    {
+                        TimpaniBankFile tbf = new TimpaniBankFile(ReadBytes(ref br, entries[j].length));
+                        dict.Add(entries[j], tbf);
+                        break;
+                    }
+                }
+            }
+
+            //build the timpani bank
+            foreach(var kv in dict)
+                timpaniBank.AddTimpaniBankFile(kv.Key, kv.Value);
 
             br.Dispose();
             return timpaniBank;
         }
 
+        /// <summary>
+        /// [UNIMPLEMENTED]
+        /// </summary>
+        /// <returns></returns>
         public TimpaniBank BuildFromExtracted()
         {
             throw new NotImplementedException();
         }
 
+        #region Byte reading for keeping track of BinaryReader's offset.
         private byte[] ReadBytes(ref BinaryReader br, uint count)
         {
             offset += count;
@@ -89,5 +113,6 @@ namespace vex2.utils
             offset += 2;
             return BitConverter.ToUInt16(br.ReadBytes(2), 0);
         }
+        #endregion
     }
 }

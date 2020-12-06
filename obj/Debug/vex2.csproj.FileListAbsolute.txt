@@ -1,0 +1,7 @@
+C:\Users\Nathan\source\repos\vex2\vex2\bin\Debug\vex2.exe.config
+C:\Users\Nathan\source\repos\vex2\vex2\bin\Debug\vex2.exe
+C:\Users\Nathan\source\repos\vex2\vex2\bin\Debug\vex2.pdb
+C:\Users\Nathan\source\repos\vex2\vex2\obj\Debug\vex2.csprojAssemblyReference.cache
+C:\Users\Nathan\source\repos\vex2\vex2\obj\Debug\vex2.csproj.CoreCompileInputs.cache
+C:\Users\Nathan\source\repos\vex2\vex2\obj\Debug\vex2.exe
+C:\Users\Nathan\source\repos\vex2\vex2\obj\Debug\vex2.pdb
