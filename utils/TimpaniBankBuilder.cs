@@ -1,15 +1,17 @@
 ﻿using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using vex2.data_structures;
+using System.Text;
 
 namespace vex2.utils
 {
     class TimpaniBankBuilder
     {
-        private TimpaniBank timpaniBank;
-        private uint offset = 0;
+        private uint offset;
         private TimpIO io;
+
         ///
         /// Table of Contents Length (8 bytes) #
         /// Table of Contents Entry (24 bytes) [1 per table of contents length]
@@ -27,13 +29,13 @@ namespace vex2.utils
         }
 
         /// <summary>
-        /// [TESTED]
         /// Returns a completed TimpaniBank object from an input timpani_bank file.
         /// </summary>
         /// <returns></returns>
         public TimpaniBank BuildFromTimpaniBank()
         {
-            timpaniBank = new TimpaniBank();
+            offset = 0;
+            TimpaniBank tb = new TimpaniBank();
             BinaryReader br = new BinaryReader(new FileStream(io.inFilePath, FileMode.Open));
 
             ulong tbcCount = ReadULong(ref br);
@@ -59,7 +61,7 @@ namespace vex2.utils
                 {
                     if (entries[j].offset == offset)
                     {
-                        TimpaniBankFile tbf = new TimpaniBankFile(ReadBytes(ref br, entries[j].length));
+                        TimpaniBankFile tbf = new TimpaniBankFile(ReadBytes(ref br, entries[j].length), false);
                         dict.Add(entries[j], tbf);
                         break;
                     }
@@ -68,19 +70,40 @@ namespace vex2.utils
 
             //build the timpani bank
             foreach(var kv in dict)
-                timpaniBank.AddTimpaniBankFile(kv.Key, kv.Value);
+                tb.AddTimpaniBankFile(kv.Key, kv.Value);
 
             br.Dispose();
-            return timpaniBank;
+            return tb;
         }
 
         /// <summary>
-        /// [UNIMPLEMENTED]
+        /// [UNTESTED]
+        /// Builds a new timpani_bank from an already extracted timpani_bank.
         /// </summary>
         /// <returns></returns>
-        public TimpaniBank BuildFromExtracted()
+        public TimpaniBank BuildFromExtracted(TimpIO tio)
         {
-            throw new NotImplementedException();
+            string[] paths = tio.GetExtractedPaths();
+            TimpaniBank tb = new TimpaniBank();
+
+            //load sound file to memory and add to timpani bank after constructing necessary fields.
+            for (ulong i = 0; i < (ulong)paths.LongLength; i++)
+            {
+                byte[] soundData = File.ReadAllBytes(paths[i]);
+                TimpaniBankFile tbf = new TimpaniBankFile(soundData, true);
+                
+
+                ulong name = ulong.Parse(Path.GetFileNameWithoutExtension(paths[i]), System.Globalization.NumberStyles.HexNumber);
+                TableOfContentsEntry tbce = new TableOfContentsEntry(name);
+
+                if (i == 0)
+                    tbce.count = (ulong)paths.LongLength;
+                else
+                    tbce.count = 0;
+                tbce.length = (uint)tbf.rawSoundFile.Length + 68; // should be the length of sound file + 68 extra bytes of metadata.
+                tb.AddTimpaniBankFile(tbce, tbf);
+            }
+            return tb;
         }
 
         #region Byte reading for keeping track of BinaryReader's offset.

@@ -59,7 +59,12 @@ namespace vex2.utils
             if (mode == ReadMode.FromBank)
                 return builder.BuildFromTimpaniBank();
             else
-                return builder.BuildFromExtracted();
+                return builder.BuildFromExtracted(this);
+        }
+
+        public string[] GetExtractedPaths()
+        {
+            return Directory.GetFiles(extractedDirPath);
         }
 
         //Rewrites the entire timpani bank to the path.

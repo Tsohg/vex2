@@ -17,12 +17,16 @@ namespace vex2.data_structures
         /// <summary>
         /// Adds a timpani bank file and its associated table of contents entry to the timpani_bank file.
         /// tbce.Length will have to be set before the add.
+        /// The first tbce added must contain a count and a length.
         /// </summary>
         /// <param name="tbce"></param>
         /// <param name="tbf"></param>
         public void AddTimpaniBankFile(TableOfContentsEntry tbce, TimpaniBankFile tbf)
         {
-            if (tbcEntries == null && tbce.length != 0) //first TBCE entry. It should have the length.
+            if (tbce.length == 0 || (tbce.count == 0 && (tbcEntries == null || bankFiles == null)))
+                throw new Exception("TBCE length must be set and/or the first TBCE added must have count set.");
+
+            if (tbcEntries == null && bankFiles == null)
             {
                 tbcEntries = new TableOfContentsEntry[tbce.count];
                 bankFiles = new TimpaniBankFile[tbce.count];
@@ -37,7 +41,7 @@ namespace vex2.data_structures
         }
 
         /// <summary>
-        /// [UNIMPLEMENTED]
+        /// [UNIMPLEMENTED UNTESTED]
         /// Returns the raw bytes for the timpani_bank's Table of Contents.
         /// </summary>
         /// <returns></returns>
@@ -47,7 +51,7 @@ namespace vex2.data_structures
         }
 
         /// <summary>
-        /// [UNIMPLEMENTED]
+        /// [UNIMPLEMENTED UNTESTED]
         /// Returns the raw bytes for an entire timpani_bank file.
         /// 
         /// Format Overview:
