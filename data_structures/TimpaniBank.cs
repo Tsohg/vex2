@@ -68,8 +68,8 @@ namespace vex2.data_structures
                 bankFiles = new TimpaniBankFile[tbce.count];
                 index = 0;
 
-                //24 entries per table of content entry. (+8) for extra 8 nil padding (+24) to skip 1 extra bankfile length which it, for some reason, required.
-                offset = (uint)(tbce.count * 24) + 8 + 24; 
+                //24 entries per table of content entry. (+8) for extra 8 nil padding.
+                offset = (uint)(tbce.count * 24) + 8;
             }
             tbce.offset = offset;
             tbcEntries[index] = tbce;

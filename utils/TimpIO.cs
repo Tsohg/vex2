@@ -95,10 +95,10 @@ namespace vex2.utils
                 bw.Write(tb.tbcEntries[i].GetRawTbce());
 
             for (int i = 0; i < 8; i++) //8 bytes of padding.
-                bw.Write(0);
+                bw.Write((byte)0);
 
-            for(int i = 0; i < tb.bankFiles.Length; i++) //write each bankfile
-                bw.Write(tb.bankFiles[i].GetRawBankFile());
+            for (int i = 0; i < tb.bankFiles.Length; i++) //write each bankfile
+                bw.Write(tb.bankFiles[i].GetRawBankFile()); //bug is here?
 
             bw.Close();
         }
