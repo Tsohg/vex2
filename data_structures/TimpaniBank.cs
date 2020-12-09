@@ -22,14 +22,14 @@ namespace vex2.data_structures
     /// Metadata Format
     ///         (4 bytes metadata length (always 68))
     ///         (4 bytes of chunk size. [64 + offset takes you to the start of next file's metadata section])
-    ///         (2-4 bytes unknown) (Assuming 4 bytes)
-    ///         (36 bytes nil)
+    ///         (8 bytes granulePosition) //this is GranulePosition for the last OggS page in .ogg files (preceded by 0x04). in .wav files, they are: ChunkSize / wavChunkDivisor
+    ///         (32 bytes nil)
     ///         (2 bytes of file indentification. If it is 1, then it is wav. if it is oV then it is an ogg file) (offset: 0x30)
     ///         [Case: Wav]
     ///             (2 bytes wav channels)
     ///             (4 bytes wav (sample rate * 2)) 
-    ///             (4 bytes unknown) (from toolchain)
-    ///             (2 bytes unknown) (from toolchain)
+    ///             (4 bytes wavChannelProduct) (22664 * numChannels)
+    ///             (2 bytes wavChunkDivisor) (2 * numChannels)
     ///             (2 bytes wav bits)
     ///             (4 bytes nil)
     ///         [Case: Ogg]

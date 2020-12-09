@@ -9,6 +9,7 @@ namespace vex2
     //TODO: Implement command line.
     //TODO: Figure out why the generated bank is smaller than the original.
     //TODO: Figure out what the unidentified bytes are.
+    //We may have to replicate the BITSQUID-SOURCE-HASH= in the .ogg files in their replacements...
 
     /// <summary>
     /// (repack all repacks every timpani bank file that was extracted to a directory).
@@ -21,7 +22,7 @@ namespace vex2
     {
         static void Main(string[] args)
         {
-            TimpIO tio = new TimpIO(@"C:\Users\???\Desktop\002d496eb97ff4be5e.timpani_bank", @"C:\Users\???\Desktop\vex2\");
+            TimpIO tio = new TimpIO(@"C:\Users\Nathan\Desktop\002d496eb97ff4be5e.timpani_bank", @"C:\Users\Nathan\Desktop\vex2\");
 
             //TimpaniBank tb = tio.ReadTimpaniBank(ReadMode.FromBank);
             //tio.ExtractTimpaniBank(tb);
