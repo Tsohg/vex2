@@ -1,35 +1,93 @@
 ﻿using vex2.utils;
-using vex2.data_structures;
+using System;
+using System.IO;
 
 namespace vex2
 {
     //[V]orbis [Ex]imo => Vex
 
-    //TODO: Try a reverse-lookup of the big endian version of the table of contents entry name.
-    //TODO: Implement command line.
-    //TODO: Figure out why the generated bank is smaller than the original.
-    //TODO: Figure out what the unidentified bytes are.
-    //We may have to replicate the BITSQUID-SOURCE-HASH= in the .ogg files in their replacements...
-
     /// <summary>
     /// (repack all repacks every timpani bank file that was extracted to a directory).
     /// Command Line:
     ///     vex2 unpack full/path/to/bank full/path/to/output/directory
-    ///     vex2 repack full/path/to/extracted/bank/dir
-    ///     vex2 repack all full/path/to/bank/directory
+    ///     vex2 repack full/path/to/extracted/bank/dir full/path/to/output/directory
+    ///     vex2 repack all full/path/to/bank/directory full/path/to/output/directory
     /// </summary>
     class Program
     {
         static void Main(string[] args)
         {
-            TimpIO tio = new TimpIO(@"C:\Users\Nathan\Desktop\002d496eb97ff4be5e.timpani_bank", @"C:\Users\Nathan\Desktop\vex2\");
+            TimpIO tio;
+            if (args.Length >= 3)
+            {
+                if (args[0].ToLower() == "repack" && args[1].ToLower() == "all")
+                {
+                    try
+                    {
+                        //repack all.
+                        string[] bankDirectories = Directory.GetDirectories(args[2]);
+                        foreach(string dir in bankDirectories)
+                        {
+                            tio = new TimpIO(dir, args[3]);
+                            tio.WriteTimpaniBank(tio.ReadTimpaniBank(ReadMode.FromExtracted));
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        InvalidArguments(e);
+                    }
+                    finally
+                    {
+                        tio = null;
+                    }
+                }
+                else if (args[0].ToLower() == "unpack")
+                {
+                    //unpack here
+                    try
+                    {
+                        tio = new TimpIO(args[1], args[2]);
+                        tio.ExtractTimpaniBank(tio.ReadTimpaniBank(ReadMode.FromBank));
+                    }
+                    catch (Exception e)
+                    {
+                        InvalidArguments(e);
+                    }
+                    finally
+                    {
+                        tio = null;
+                    }
+                }
+                else if (args[0].ToLower() == "repack")
+                {
+                    //repack here
+                    try
+                    {
+                        tio = new TimpIO(args[1], args[2]);
+                        tio.WriteTimpaniBank(tio.ReadTimpaniBank(ReadMode.FromExtracted));
+                    }
+                    catch (Exception e)
+                    {
+                        InvalidArguments(e);
+                    }
+                    finally
+                    {
+                        tio = null;
+                    }
+                }
+            }
+            else
+                InvalidArguments(new Exception("Invalid number of arguments."));
+        }
 
-            //TimpaniBank tb = tio.ReadTimpaniBank(ReadMode.FromBank);
-            //tio.ExtractTimpaniBank(tb);
-
-            TimpaniBank ex = tio.ReadTimpaniBank(ReadMode.FromExtracted);
-            tio.WriteTimpaniBank(ex);
-            //Console.Read();
+        private static void InvalidArguments(Exception e)
+        {
+            Console.Out.WriteLine(e.Message + "\n");
+            Console.Out.WriteLine("Incorrect arguments. See documentation for proper command usage. Examples:\n" +
+            "\tvex2 unpack full/path/to/bank full/path/to/output/directory\n" +
+            "\tvex2 repack full/path/to/extracted/bank/dir\n" +
+            "\tvex2 repack all full/path/to/bank/directory");
+            Console.Read();
         }
     }
 }
