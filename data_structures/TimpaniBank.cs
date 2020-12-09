@@ -50,17 +50,6 @@ namespace vex2.data_structures
         private ulong index;                        //Current index for adding new bankfiles.
         private uint offset;                        //Current byte offset to place the bankfile at. //BUG: seems to be off by 24 each time?
 
-        public ulong TableOfContentsSize
-        {
-            get
-            {
-                int bfLen = 0;
-                foreach (var bf in bankFiles)
-                    bfLen += bf.rawSoundFile.Length + 68; //68 = size of metadata.
-                return (ulong)((tbcEntries.Length * 24) + 8 + bfLen); //24 is the size of the entry and 8 is the extra 8 bytes of padding added to the end of the table of contents.
-            }
-        }
-
         /// <summary>
         /// Adds a timpani bank file and its associated table of contents entry to the timpani_bank file.
         /// tbce.Length will have to be set before the add.
