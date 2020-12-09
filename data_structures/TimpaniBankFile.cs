@@ -1,50 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace vex2.data_structures
 {
-    /// <summary>
-    /// 
-    /// Timpani Bank Format:
-    /// 
-    /// Table of Contents Length (8 bytes) #
-    /// Table of Contents Entry (24 bytes) [1 per table of contents length]
-    ///     (8 bytes nil. Unless it is the first table of contents entry 
-    ///     in which case the first 8 bytes is the table of contents length as stated above) #
-    ///     
-    ///     (8 bytes unique identifer [Hashed Name])
-    ///     (4 bytes offset to sound file) [See sound file format below]
-    ///     (4 bytes length of sound file)
-    ///     
-    /// Sound File Format:
-    ///     (68 bytes of metadata) [See metadata format below]
-    ///     (Either Ogg or Wav file contents)
-    ///     
-    /// Metadata Format
-    ///         (4 bytes metadata length (always 68))
-    ///         (4 bytes of length. [64 + offset takes you to the start of next file's metadata section])
-    ///         (2-4 bytes unknown) (Assuming 4 bytes)
-    ///         (36 bytes nil)
-    ///         (2 bytes of file indentification. If it is 1, then it is wav. if it is oV then it is an ogg file) (offset: 0x30)
-    ///         [Case: Wav]
-    ///             (2 bytes wav channels)
-    ///             (4 bytes wav (sample rate * 2)) 
-    ///             (4 bytes unknown) (from toolchain)
-    ///             (2 bytes unknown) (from toolchain)
-    ///             (2 bytes wav bits)
-    ///             (4 bytes nil)
-    ///         [Case: Ogg]
-    ///             (18 bytes nil)
-    ///             
-    /// </summary>
-
     //68 bytes total. Marshalling pads the 4 bytes necessary to fit into the timpani metadata format.
     public struct MetaData
     {
         public uint length;            //always 68
-        public uint next;              //64 + this value = the offset of the NEXT banked file.
+        public uint chunkSize;         //64 + this value = the offset of the NEXT banked file. This is chunkSize+36 in .wav. Maybe it is Chunk Size in .ogg too...
         public uint unid1;             //unidentified 4 bytes. This is set in .ogg files and .wav files.
 
         public ulong nil1;             //many bytes of 0s. I assume they are reserved or it is just padding for something.
@@ -84,17 +49,17 @@ namespace vex2.data_structures
                 FromExtracted(rawFile);
             else
             {
-                rawMetaData = rawFile.Take(68).ToArray(); //first 68 bytes is the raw metadata.
-                rawSoundFile = rawFile.Skip(68).Take(rawFile.Length - 68).ToArray(); //take everything else. may be an off-by-one error.
+                rawMetaData = rawFile.Take(68).ToArray();
+                rawSoundFile = rawFile.Skip(68).Take(rawFile.Length - 68).ToArray();
 
                 //Build metadata struct.
                 MetaData meta = new MetaData();
 
                 meta.length = BitConverter.ToUInt32(rawMetaData.Take(4).ToArray(), 0);
-                meta.next = BitConverter.ToUInt32(rawMetaData.Skip(4).Take(4).ToArray(), 0);
+                meta.chunkSize = BitConverter.ToUInt32(rawMetaData.Skip(4).Take(4).ToArray(), 0);
                 meta.unid1 = BitConverter.ToUInt32(rawMetaData.Skip(8).Take(4).ToArray(), 0);
 
-                meta.nil1 = 0; //BitConverter.ToUInt32(RawMetadata.Skip(12).Take(36).ToArray(), 0);
+                meta.nil1 = 0;
                 meta.nil2 = 0;
                 meta.nil3 = 0;
                 meta.nil4 = 0;
@@ -115,7 +80,6 @@ namespace vex2.data_structures
         }
 
         /// <summary>
-        /// [UNTESTED]
         /// A new timpani bank from a given metaData object and a given .wav or .ogg sound file.
         /// Offset is set within the timpani_bank object. Length must be set here.
         /// </summary>
@@ -124,18 +88,19 @@ namespace vex2.data_structures
         private void FromExtracted(byte[] rawSound)
         {
             metaData = BuildNewMetaData();
-            if (rawSound.Take(4).ToString() == "RIFF") //if it is a .wav
+            string capPattern = Encoding.ASCII.GetString(rawSound.Take(4).ToArray());
+            if (capPattern == "RIFF")
             {
                 byte[] wavHeader = rawSound.Take(44).ToArray(); //44 bytes = a wav header.
                 metaData = WavHeaderToMetaData(metaData, wavHeader); //set the metadata appropriately for a .wav file except the unid bytes
                 rawSound = rawSound.Skip(44).Take(rawSound.Length - 44).ToArray(); //Everything beyond 44 bytes should be the raw sound data.
             }
-            metaData.length = (uint)rawSound.Length;
+            //meta.unid1 = ???  //In both .wav and .ogg files.
             rawSoundFile = rawSound;
+            rawMetaData = MarshalMetaData(metaData);
         }
 
         /// <summary>
-        /// [UNTESTED]
         /// Get the raw bankfile bytes useful for rewriting the timpani bank.
         /// </summary>
         /// <returns>
@@ -150,7 +115,31 @@ namespace vex2.data_structures
         }
 
         /// <summary>
-        /// [UNTESTED]
+        /// Marshals a metadata struct into an array of bytes.
+        /// </summary>
+        /// <param name="meta"></param>
+        /// <returns></returns>
+        public byte[] MarshalMetaData(MetaData meta)
+        {
+            int size = Marshal.SizeOf(68); //get size
+            byte[] rawMeta = new byte[68]; //set byte buffer
+            IntPtr strucPtr = Marshal.AllocHGlobal(68); //allocate size and return its pointer
+            Marshal.StructureToPtr(meta, strucPtr, true); //copy structure into the pointer
+            Marshal.Copy(strucPtr, rawMeta, 0, 68); //copy the contents of the ptr to the byte[]
+            Marshal.FreeHGlobal(strucPtr); //free pointer memory.
+            return rawMeta;
+        }
+
+        /// <summary>
+        /// Marshals this timpani_bankfile's metadata field.
+        /// </summary>
+        /// <returns></returns>
+        public byte[] MarshalMetaData() //Marshal pre-existing metaData struct set in the constructor where it is not from extracted files.
+        {
+            return MarshalMetaData(metaData);
+        }
+
+        /// <summary>
         /// Set fields in the metadata using given .wav header.
         /// </summary>
         /// <param name="meta"></param>
@@ -159,13 +148,13 @@ namespace vex2.data_structures
         private MetaData WavHeaderToMetaData(MetaData meta, byte[] wavHeader)
         {
             meta.identifier = 1;
-            meta.next = BitConverter.ToUInt32(wavHeader.Skip(4).Take(4).ToArray(), 0) - 36;
-            meta.channels = BitConverter.ToUInt16(wavHeader.Skip(24).Take(2).ToArray(), 0);
-            meta.sampleRate = BitConverter.ToUInt16(wavHeader.Skip(26).Take(2).ToArray(), 0);
-            meta.wavBits = BitConverter.ToUInt16(wavHeader.Skip(36).Take(2).ToArray(), 0);
-            //meta.unid1 = ???
-            //meta.unid2 = ???
-            //meta.unid3 = ???
+            meta.chunkSize = BitConverter.ToUInt32(wavHeader.Skip(4).Take(4).ToArray(), 0) - 36;
+            meta.channels = BitConverter.ToUInt16(wavHeader.Skip(22).Take(2).ToArray(), 0);
+            meta.sampleRate = BitConverter.ToUInt16(wavHeader.Skip(24).Take(2).ToArray(), 0);
+            meta.wavBits = BitConverter.ToUInt16(wavHeader.Skip(34).Take(2).ToArray(), 0);
+
+            //meta.unid2 = ???  //In only .wav files. (.ogg = 0)
+            //meta.unid3 = ???  //In only .wav files. (.ogg = 0)
             return meta;
         }
 
@@ -188,10 +177,10 @@ namespace vex2.data_structures
             meta.unid1 = 0;
             meta.unid2 = 0;
             meta.unid3 = 0;
-            meta.next = 0;
+            meta.chunkSize = 0;
             meta.sampleRate = 0;
             meta.wavBits = 0;
-            meta.length = 0;
+            meta.length = 68;
             return meta;
         }
     }

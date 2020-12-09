@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 using System.IO;
 using vex2.data_structures;
 using System.Text;
@@ -11,6 +10,21 @@ namespace vex2.utils
         FromBank, //Reads from an original timpani_bank file.
         FromExtracted //Reads a timpani_bank from it's extracted contents. Used for replacing files in the bank.
     };
+
+    /// <summary>
+    /// File Structure ->
+    /// 
+    /// outDirPath
+    ///     Bank1Name
+    ///         Extracted
+    ///         Metadata
+    ///     Bank2Name
+    ///         Extracted
+    ///         Metadata
+    ///     Bank3Name
+    ///     ...
+    ///     
+    /// </summary>
 
     class TimpIO
     {
@@ -32,6 +46,7 @@ namespace vex2.utils
         private readonly string extractedDirName = @"/extracted/";
 
         private readonly string bankName;   //timpani_bank's hashed file name.
+        private readonly string mainOutputDirPath;
 
         public TimpIO(string inFilePath, string outDirPath)
         {
@@ -39,11 +54,15 @@ namespace vex2.utils
             this.outDirPath = outDirPath;
 
             bankName = Path.GetFileNameWithoutExtension(inFilePath);
-            metaDirPath = outDirPath + metaDirName;
-            extractedDirPath = outDirPath + extractedDirName;
+            mainOutputDirPath = outDirPath + bankName; //without "/"
+            metaDirPath = mainOutputDirPath + metaDirName;
+            extractedDirPath = mainOutputDirPath + extractedDirName;
 
             if (!Directory.Exists(outDirPath))
                 Directory.CreateDirectory(outDirPath);
+
+            if (!Directory.Exists(mainOutputDirPath))
+                Directory.CreateDirectory(mainOutputDirPath);
 
             if (!Directory.Exists(metaDirPath))
                 Directory.CreateDirectory(metaDirPath);
@@ -70,7 +89,18 @@ namespace vex2.utils
         //Rewrites the entire timpani bank to the path.
         public void WriteTimpaniBank(TimpaniBank tb)
         {
-            File.WriteAllBytes(outDirPath + bankName + bankExt, tb.GetRawTimpaniBank());
+            BinaryWriter bw = new BinaryWriter(new FileStream(outDirPath + bankName + bankExt, FileMode.Create));
+
+            for (int i = 0; i < tb.tbcEntries.Length; i++) //write the table of contents
+                bw.Write(tb.tbcEntries[i].GetRawTbce());
+
+            for (int i = 0; i < 8; i++) //8 bytes of padding.
+                bw.Write(0);
+
+            for(int i = 0; i < tb.bankFiles.Length; i++) //write each bankfile
+                bw.Write(tb.bankFiles[i].GetRawBankFile());
+
+            bw.Close();
         }
 
         public void ExtractTimpaniBank(TimpaniBank tb)
@@ -95,7 +125,7 @@ namespace vex2.utils
                     byte[] buffer = Encoding.ASCII.GetBytes("RIFF");
                     bw.Write(buffer);
 
-                    bw.Write(tb.bankFiles[i].metaData.next + 36); //metaData.next is the same as .wav's "bytes" part of the header.
+                    bw.Write(tb.bankFiles[i].metaData.chunkSize + 36); //metaData.next is the same as .wav's "bytes" part of the header.
 
                     buffer = Encoding.ASCII.GetBytes("WAVEfmt ");
                     bw.Write(buffer);
@@ -116,7 +146,7 @@ namespace vex2.utils
                     buffer = Encoding.ASCII.GetBytes("data");
                     bw.Write(buffer);
 
-                    bw.Write(tb.bankFiles[i].metaData.next);
+                    bw.Write(tb.bankFiles[i].metaData.chunkSize);
                     bw.Write(tb.bankFiles[i].rawSoundFile);
                     bw.Close();
                 }
@@ -131,15 +161,7 @@ namespace vex2.utils
         private void WriteMetadata(TimpaniBank tb)
         {
             for(int i = 0; i < tb.tbcEntries.Length; i++)
-            {
-                int size = Marshal.SizeOf(68); //get size
-                byte[] meta = new byte[68]; //set byte buffer
-                IntPtr strucPtr = Marshal.AllocHGlobal(68); //allocate size and return its pointer
-                Marshal.StructureToPtr(tb.bankFiles[i].metaData, strucPtr, true); //copy structure into the pointer
-                Marshal.Copy(strucPtr, meta, 0, 68);
-                Marshal.FreeHGlobal(strucPtr); //free pointer memory.
-                File.WriteAllBytes(metaDirPath + tb.tbcEntries[i].name.ToString("X") + metaExt, meta); //write metadata to file.
-            }
+                File.WriteAllBytes(metaDirPath + tb.tbcEntries[i].name.ToString("X") + metaExt, tb.bankFiles[i].MarshalMetaData()); //write metadata to file.
         }
     }
 }

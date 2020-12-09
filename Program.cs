@@ -1,23 +1,34 @@
 ﻿using vex2.utils;
 using vex2.data_structures;
-using System;
 
 namespace vex2
 {
     //[V]orbis [Ex]imo => Vex
 
     //TODO: Try a reverse-lookup of the big endian version of the table of contents entry name.
-    //TODO: Write the timpani_bank from extracted, then compare to the original timpani_bank. The entries and data (probably) don't need to be in same order, so just check offset/lengths.
-    //      Also, we must figure out what the unidentified bytes are.
+    //TODO: Implement command line.
+    //TODO: Figure out why the generated bank is smaller than the original.
+    //TODO: Figure out what the unidentified bytes are.
+
+    /// <summary>
+    /// (repack all repacks every timpani bank file that was extracted to a directory).
+    /// Command Line:
+    ///     vex2 unpack full/path/to/bank full/path/to/output/directory
+    ///     vex2 repack full/path/to/extracted/bank/dir
+    ///     vex2 repack all full/path/to/bank/directory
+    /// </summary>
     class Program
     {
         static void Main(string[] args)
         {
-            TimpIO tio = new TimpIO(@"C:\Users\Nathan\Desktop\002d496eb97ff4be5e.timpani_bank", @"C:\Users\Nathan\Desktop\vex2\");
+            TimpIO tio = new TimpIO(@"C:\Users\???\Desktop\002d496eb97ff4be5e.timpani_bank", @"C:\Users\???\Desktop\vex2\");
+
             //TimpaniBank tb = tio.ReadTimpaniBank(ReadMode.FromBank);
             //tio.ExtractTimpaniBank(tb);
+
             TimpaniBank ex = tio.ReadTimpaniBank(ReadMode.FromExtracted);
-            Console.Read();
+            tio.WriteTimpaniBank(ex);
+            //Console.Read();
         }
     }
 }
