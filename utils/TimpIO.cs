@@ -29,14 +29,14 @@ namespace vex2.utils
     class TimpIO
     {
         //directory paths
-        public string inFilePath;       // input file
-        public string outDirPath;       // output directory
-        public string metaDirPath;      // metadata output directory
-        public string extractedDirPath; // path to extracted sound files
+        public readonly string inFilePath;              // input file
+        public readonly string outDirPath;              // output directory
+        public readonly string metaDirPath;             // metadata output directory
+        public readonly string extractedDirPath;  // path to extracted sound files.
 
         //file extensions
         //private readonly string tbcExt = ".tbc";    // table of contents
-        private readonly string metaExt = ".meta";  // metadata
+        private readonly string metaExt = ".meta";      // metadata
         private readonly string oggExt = ".ogg";
         private readonly string wavExt = ".wav";
         private readonly string bankExt = ".timpani_bank";
@@ -48,7 +48,7 @@ namespace vex2.utils
         private readonly string bankName;   //timpani_bank's hashed file name.
         private readonly string mainOutputDirPath;
 
-        public TimpIO(string inFilePath, string outDirPath)
+        public TimpIO(string inFilePath, string outDirPath, bool repackAll)
         {
             this.inFilePath = inFilePath;
             this.outDirPath = outDirPath;
@@ -61,19 +61,26 @@ namespace vex2.utils
             }
             mainOutputDirPath = outDirPath + bankName; //without "/"
             metaDirPath = mainOutputDirPath + metaDirName;
-            extractedDirPath = mainOutputDirPath + extractedDirName;
+
+            if(repackAll)
+                extractedDirPath = inFilePath + extractedDirName;
+            else
+                extractedDirPath = mainOutputDirPath + extractedDirName;
 
             if (!Directory.Exists(outDirPath))
                 Directory.CreateDirectory(outDirPath);
 
-            if (!Directory.Exists(mainOutputDirPath))
-                Directory.CreateDirectory(mainOutputDirPath);
+            if (!repackAll)
+            {
+                if (!Directory.Exists(mainOutputDirPath))
+                    Directory.CreateDirectory(mainOutputDirPath);
 
-            if (!Directory.Exists(metaDirPath))
-                Directory.CreateDirectory(metaDirPath);
+                if (!Directory.Exists(metaDirPath))
+                    Directory.CreateDirectory(metaDirPath);
 
-            if (!Directory.Exists(extractedDirPath))
-                Directory.CreateDirectory(extractedDirPath);
+                if (!Directory.Exists(extractedDirPath))
+                    Directory.CreateDirectory(extractedDirPath);
+            }
         }
 
         public TimpaniBank ReadTimpaniBank(ReadMode mode)
