@@ -54,6 +54,11 @@ namespace vex2.utils
             this.outDirPath = outDirPath;
 
             bankName = Path.GetFileNameWithoutExtension(inFilePath);
+            if (bankName == "")
+            {
+                string[] path = Path.GetDirectoryName(inFilePath).Split(Path.DirectorySeparatorChar);
+                bankName = path[path.Length - 1];
+            }
             mainOutputDirPath = outDirPath + bankName; //without "/"
             metaDirPath = mainOutputDirPath + metaDirName;
             extractedDirPath = mainOutputDirPath + extractedDirName;
