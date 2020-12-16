@@ -66,9 +66,9 @@ namespace vex2.utils
         /// Builds a new timpani_bank from an already extracted timpani_bank.
         /// </summary>
         /// <returns></returns>
-        public TimpaniBank BuildFromExtracted(TimpIO tio)
+        public TimpaniBank BuildFromExtracted()
         {
-            string[] paths = tio.GetExtractedPaths();
+            string[] paths = io.GetExtractedPaths();
             TimpaniBank tb = new TimpaniBank();
 
             for (ulong i = 0; i < (ulong)paths.LongLength; i++)

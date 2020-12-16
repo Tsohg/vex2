@@ -54,7 +54,7 @@ namespace vex2.utils
             this.outDirPath = outDirPath;
 
             bankName = Path.GetFileNameWithoutExtension(inFilePath);
-            if (bankName == "")
+            if (bankName == "") //Will be blank if inFilePath is actually a directory used for repacking.
             {
                 string[] path = Path.GetDirectoryName(inFilePath).Split(Path.DirectorySeparatorChar);
                 bankName = path[path.Length - 1];
@@ -90,7 +90,7 @@ namespace vex2.utils
             if (mode == ReadMode.FromBank)
                 return builder.BuildFromTimpaniBank();
             else
-                return builder.BuildFromExtracted(this);
+                return builder.BuildFromExtracted();
         }
 
         public string[] GetExtractedPaths()
