@@ -75,6 +75,7 @@ namespace vex2.utils
                     tbce.count = (ulong)paths.LongLength;
                 else
                     tbce.count = 0;
+
                 tbce.length = (uint)tbf.rawSoundFile.Length + 68; //68 bytes of metadata.
                 tb.AddTimpaniBankFile(tbce, tbf);
             }

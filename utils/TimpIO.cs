@@ -28,21 +28,24 @@ namespace vex2.utils
 
         public void UnpackMode()
         {
-            if (File.Exists(inputPath))
-            {
-                bankName = Path.GetFileNameWithoutExtension(inputPath);
-                bankOutputPath = outputPath + bankName;
+            if (!File.Exists(inputPath))
+                throw new Exception("File does not exist for unpacking.");
 
-                if (!Directory.Exists(bankOutputPath))
-                    Directory.CreateDirectory(bankOutputPath);
-                builder = new TimpaniBankBuilder(this);
-                ReadBank = builder.BuildFromTimpaniBank;
-            }
-            else throw new Exception("File does not exist for unpacking.");
+            bankName = Path.GetFileNameWithoutExtension(inputPath);
+            bankOutputPath = outputPath + bankName;
+
+            if (!Directory.Exists(bankOutputPath))
+                Directory.CreateDirectory(bankOutputPath);
+
+            builder = new TimpaniBankBuilder(this);
+            ReadBank = builder.BuildFromTimpaniBank;
         }
 
         public void RepackMode()
         {
+            if (!Directory.Exists(inputPath))
+                throw new Exception("Directory does not exist to repack from.");
+
             bankName = GetBankNameFromDirectoryPath(inputPath);
             bankOutputPath = outputPath + bankName + bankExt;
             builder = new TimpaniBankBuilder(this);
@@ -51,12 +54,11 @@ namespace vex2.utils
 
         private string GetBankNameFromDirectoryPath(string path)
         {
-            if (Directory.Exists(inputPath))
-            {
-                string[] splitPath = Path.GetDirectoryName(path + @"\\").Split(Path.DirectorySeparatorChar);
-                return splitPath[splitPath.Length - 1]; //directory name as bankname.
-            }
-            else throw new Exception("Input Directory not found.");
+            if (!Directory.Exists(inputPath))
+                throw new Exception("Input Directory not found.");
+
+            string[] splitPath = Path.GetDirectoryName(path + @"\\").Split(Path.DirectorySeparatorChar);
+            return splitPath[splitPath.Length - 1]; //directory name as bankname.
         }
 
         public TimpaniBank ReadTimpaniBank()
