@@ -16,9 +16,9 @@ namespace vex2.utils
         private readonly string wavExt = ".wav";
         private readonly string bankExt = ".timpani_bank";
 
-        public delegate TimpaniBank ReadTimpaniDel();
-        public ReadTimpaniDel ReadBank;
-        TimpaniBankBuilder builder;
+        private delegate TimpaniBank ReadTimpaniDel();
+        private ReadTimpaniDel ReadBank;
+        private TimpaniBankBuilder builder;
 
         public TimpIO(string inputPath, string outputPath)
         {
