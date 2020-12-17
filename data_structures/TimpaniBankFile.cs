@@ -33,91 +33,92 @@ namespace vex2.data_structures
     /// </summary>
     class TimpaniBankFile
     {
-        private byte[] rawMetaData;
-        public byte[] rawSoundFile;
+        public byte[] rawBankFile;  //includes metadata.
+        public byte[] rawMetaData;  //extracted metadata.
+        public byte[] rawSoundFile; //extracted sound data excluding metadata.
 
         public MetaData metaData;
         public bool isWav;
 
-        /// <summary>
-        /// [REFACTOR]
-        /// A new timpani bank file extracted from the timpani bank.
-        /// </summary>
-        /// <param name="rawFile"></param>
-        public TimpaniBankFile(byte[] rawFile, bool buildFromExtracted) //might want to extract boolean into function call.
+        public TimpaniBankFile(byte[] rawBankFile)
         {
-            if (buildFromExtracted)
-                FromExtracted(rawFile); //[REFACTOR W/ BELOW] Probably has some commonality with what we are extracting below.
-            else //[EXTRACT] extract to new method that returns metadata.
-            {
-                rawMetaData = rawFile.Take(68).ToArray();
-                rawSoundFile = rawFile.Skip(68).Take(rawFile.Length - 68).ToArray();
+            this.rawBankFile = rawBankFile;  
+        }
 
-                //Build metadata struct.
-                MetaData meta = new MetaData();
+        public void BuildFromBank()
+        {
+            rawMetaData = rawBankFile.Take(68).ToArray();
+            rawSoundFile = rawBankFile.Skip(68).Take(rawBankFile.Length - 68).ToArray();
 
-                meta.length = BitConverter.ToUInt32(rawMetaData.Take(4).ToArray(), 0);
-                meta.chunkSize = BitConverter.ToUInt32(rawMetaData.Skip(4).Take(4).ToArray(), 0);
-                meta.granulePos = BitConverter.ToUInt32(rawMetaData.Skip(8).Take(4).ToArray(), 0);
+            //Build metadata struct.
+            MetaData meta = new MetaData();
 
-                meta.nil1 = 0;
-                meta.nil2 = 0;
-                meta.nil3 = 0;
-                meta.nil4 = 0;
+            meta.length = BitConverter.ToUInt32(rawMetaData.Take(4).ToArray(), 0);
+            meta.chunkSize = BitConverter.ToUInt32(rawMetaData.Skip(4).Take(4).ToArray(), 0);
+            meta.granulePos = BitConverter.ToUInt32(rawMetaData.Skip(8).Take(4).ToArray(), 0);
 
-                meta.identifier = BitConverter.ToUInt16(rawMetaData.Skip(48).Take(2).ToArray(), 0);
+            meta.nil1 = 0;
+            meta.nil2 = 0;
+            meta.nil3 = 0;
+            meta.nil4 = 0;
 
-                //wav header information. All 0s if the file is .ogg
-                meta.channels = BitConverter.ToUInt16(rawMetaData.Skip(50).Take(2).ToArray(), 0);
-                meta.sampleRate = BitConverter.ToUInt16(rawMetaData.Skip(52).Take(4).ToArray(), 0);
-                meta.wavChannelProduct = BitConverter.ToUInt16(rawMetaData.Skip(56).Take(4).ToArray(), 0);
-                meta.wavChannelDivisor = BitConverter.ToUInt16(rawMetaData.Skip(60).Take(2).ToArray(), 0);
-                meta.wavBits = BitConverter.ToUInt16(rawMetaData.Skip(62).Take(2).ToArray(), 0);
-                meta.nil5 = 0;
+            meta.identifier = BitConverter.ToUInt16(rawMetaData.Skip(48).Take(2).ToArray(), 0);
 
-                metaData = meta;
-            }
+            //wav header information. All 0s if the file is .ogg
+            meta.channels = BitConverter.ToUInt16(rawMetaData.Skip(50).Take(2).ToArray(), 0);
+            meta.sampleRate = BitConverter.ToUInt16(rawMetaData.Skip(52).Take(4).ToArray(), 0);
+            meta.wavChannelProduct = BitConverter.ToUInt16(rawMetaData.Skip(56).Take(4).ToArray(), 0);
+            meta.wavChannelDivisor = BitConverter.ToUInt16(rawMetaData.Skip(60).Take(2).ToArray(), 0);
+            meta.wavBits = BitConverter.ToUInt16(rawMetaData.Skip(62).Take(2).ToArray(), 0);
+            meta.nil5 = 0;
+
+            metaData = meta;
             isWav = (metaData.identifier == 1);
         }
 
         /// <summary>
-        /// [REFACTOR]
         /// A new timpani bank from a given metaData object and a given .wav or .ogg sound file.
         /// Offset is set within the timpani_bank object. Length must be set here.
         /// </summary>
-        /// <param name="metaData"></param>
-        /// <param name="rawSound"></param>
-        private void FromExtracted(byte[] rawSound)
+        public void BuildFromExtracted()
         {
             metaData = BuildNewMetaData();
-            string capPattern = Encoding.ASCII.GetString(rawSound.Take(4).ToArray());
-            if (capPattern == "RIFF")//[EXTRACT]
+            string capPattern = Encoding.ASCII.GetString(rawBankFile.Take(4).ToArray());
+
+            if (capPattern == "RIFF")
+                SplitMetaFromExtractedWav();
+            else
+                SplitMetaFromExtractedOgg();
+
+            rawSoundFile = rawBankFile;
+            rawMetaData = MarshalMetaData(metaData);
+        }
+
+        private void SplitMetaFromExtractedWav()
+        {
+            isWav = true;
+            byte[] wavHeader = rawBankFile.Take(44).ToArray(); //44 bytes = a wav header.
+            metaData = WavHeaderToMetaData(metaData, wavHeader); //set the metadata appropriately for a .wav file except the unid bytes
+            rawBankFile = rawBankFile.Skip(44).Take(rawBankFile.Length - 44).ToArray(); //Everything beyond 44 bytes should be the raw sound data.
+        }
+
+        private void SplitMetaFromExtractedOgg()
+        {
+            isWav = false;
+            for (int i = 0; i < rawBankFile.Length; i++) //find the last page of an ogg file then read its granule position.
             {
-                byte[] wavHeader = rawSound.Take(44).ToArray(); //44 bytes = a wav header.
-                metaData = WavHeaderToMetaData(metaData, wavHeader); //set the metadata appropriately for a .wav file except the unid bytes
-                rawSound = rawSound.Skip(44).Take(rawSound.Length - 44).ToArray(); //Everything beyond 44 bytes should be the raw sound data.
-            }
-            else//[EXTRACT]
-            {
-                //granulePos set here if ogg. it is the last page
-                for(int i = 0; i < rawSound.Length; i++)
+                if (rawBankFile[i] == 79) //[O]ggS //&& rawBankFile[i + 1] == 103 && rawBankFile[i + 2] == 103 && rawBankFile[i + 3] == 83) 
                 {
-                    if(rawSound[i] == 79 && rawSound[i+1] == 103 && rawSound[i+2] == 103 && rawSound[i+3] == 83) //OggS
+                    i += 5; //start of: 0x04
+                    if (rawBankFile[i] == 4)
                     {
-                        i += 5; //start of:0x04
-                        if(rawSound[i] == 4)
-                        {
-                            byte[] granPosArr = rawSound.Skip(i + 1).Take(8).ToArray();
-                            metaData.granulePos = BitConverter.ToUInt64(granPosArr, 0);
-                            granPosArr = null;
-                            break;
-                        }
+                        byte[] granPosArr = rawBankFile.Skip(i + 1).Take(8).ToArray();
+                        metaData.granulePos = BitConverter.ToUInt64(granPosArr, 0);
+                        granPosArr = null;
+                        break;
                     }
                 }
             }
-
-            rawSoundFile = rawSound;
-            rawMetaData = MarshalMetaData(metaData);
         }
 
         /// <summary>

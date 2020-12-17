@@ -1,13 +1,11 @@
 ﻿using System;
 using System.IO;
-using System.Collections.Generic;
 using vex2.data_structures;
 
 namespace vex2.utils
 {
     class TimpaniBankBuilder
     {
-        private uint offset;
         private TimpIO io;
 
         public TimpaniBankBuilder(TimpIO io)
@@ -15,18 +13,9 @@ namespace vex2.utils
             this.io = io;
         }
 
-        /// <summary>
-        /// [REFACTOR]
-        /// Returns a completed TimpaniBank object from an input timpani_bank file.
-        /// </summary>
-        /// <returns></returns>
-        public TimpaniBank BuildFromTimpaniBank()
+        private TableOfContentsEntry[] BuildTableOfContents(BinaryReader br)
         {
-            offset = 0;
-            TimpaniBank tb = new TimpaniBank();
-            BinaryReader br = new BinaryReader(new FileStream(io.inputPath, FileMode.Open));
-
-            ulong tbcCount = ReadULong(br); //[EXTRACT] We are building the table of contents here. Move to another function and return entries.
+            ulong tbcCount = ReadULong(br);
             TableOfContentsEntry[] entries = new TableOfContentsEntry[tbcCount];
 
             for (ulong i = 0; i < tbcCount; i++)
@@ -38,26 +27,27 @@ namespace vex2.utils
                 entries[i] = entry;
                 ReadULong(br);
             }
+            return entries;
+        }
 
-            Dictionary<TableOfContentsEntry, TimpaniBankFile> dict = 
-                new Dictionary<TableOfContentsEntry, TimpaniBankFile>();
+        /// <summary>
+        /// Returns a completed TimpaniBank object from an input timpani_bank file.
+        /// </summary>
+        /// <returns></returns>
+        public TimpaniBank BuildFromTimpaniBank()
+        {
+            TimpaniBank tb = new TimpaniBank();
 
-            ///TODO: This is the bottleneck of the application. Try to find an optimization later.
-            for (int i = 0; i < entries.Length; i++)
+            BinaryReader br = new BinaryReader(new FileStream(io.inputPath, FileMode.Open));
+            TableOfContentsEntry[] tableOfContents = BuildTableOfContents(br);
+
+            foreach(TableOfContentsEntry tbce in tableOfContents)
             {
-                for (int j = 0; j < entries.Length; j++)
-                {
-                    if (entries[j].offset == offset)
-                    {
-                        TimpaniBankFile tbf = new TimpaniBankFile(ReadBytes(br, entries[j].length), false);
-                        dict.Add(entries[j], tbf);
-                        break;
-                    }
-                }
+                br.BaseStream.Position = tbce.offset;
+                TimpaniBankFile tbf = new TimpaniBankFile(ReadBytes(br, tbce.length));
+                tbf.BuildFromBank();
+                tb.AddTimpaniBankFile(tbce, tbf);
             }
-
-            foreach(var kv in dict)
-                tb.AddTimpaniBankFile(kv.Key, kv.Value);
 
             br.Dispose();
             return tb;
@@ -75,7 +65,8 @@ namespace vex2.utils
             for (ulong i = 0; i < (ulong)paths.LongLength; i++)
             {
                 byte[] soundData = File.ReadAllBytes(paths[i]);
-                TimpaniBankFile tbf = new TimpaniBankFile(soundData, true);
+                TimpaniBankFile tbf = new TimpaniBankFile(soundData);
+                tbf.BuildFromExtracted();
 
                 ulong name = ulong.Parse(Path.GetFileNameWithoutExtension(paths[i]), System.Globalization.NumberStyles.HexNumber);
                 TableOfContentsEntry tbce = new TableOfContentsEntry(name);
@@ -84,40 +75,35 @@ namespace vex2.utils
                     tbce.count = (ulong)paths.LongLength;
                 else
                     tbce.count = 0;
-                tbce.length = (uint)tbf.rawSoundFile.Length + 68; //should be the length of sound file + 68 extra bytes of metadata.
+                tbce.length = (uint)tbf.rawSoundFile.Length + 68; //68 bytes of metadata
                 tb.AddTimpaniBankFile(tbce, tbf);
             }
             return tb;
         }
 
-        #region Byte reading for keeping track of BinaryReader's offset.
+        #region Byte Reading
         private byte[] ReadBytes(BinaryReader br, uint count)
         {
-            offset += count;
             return br.ReadBytes((int)count);
         }
 
         private byte ReadByte(BinaryReader br)
         {
-            offset += 1;
             return br.ReadByte();
         }
 
         private ulong ReadULong(BinaryReader br)
         {
-            offset += 8;
             return BitConverter.ToUInt64(br.ReadBytes(8), 0);
         }
 
         private uint ReadUInt(BinaryReader br)
         {
-            offset += 4;
             return BitConverter.ToUInt32(br.ReadBytes(4), 0);
         }
 
         private int ReadUShort(BinaryReader br)
         {
-            offset += 2;
             return BitConverter.ToUInt16(br.ReadBytes(2), 0);
         }
         #endregion
