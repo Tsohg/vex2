@@ -110,7 +110,7 @@ namespace vex2
             Console.Out.WriteLine("Incorrect arguments. See documentation for proper command usage. Examples: \n" +
             "\t vex2 unpack full/path/to/bank full/path/to/output/directory \n" +
             "\t vex2 unpack all full/path/to/input/directory full/path/to/output/directory \n" +
-            "\t vex2 repack full/path/to/extracted/bank/dir\n" +
+            "\t vex2 repack full/path/to/extracted/bank/dir \n" +
             "\t vex2 repack all full/path/to/bank/directory full/path/to/output/directory");
             Environment.Exit(0);
         }

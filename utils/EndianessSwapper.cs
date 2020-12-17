@@ -14,13 +14,5 @@
                 ((value & 0x00ff000000000000) >> 40) +
                 ((value & 0xff00000000000000) >> 56);
         }
-        //public static uint SwapUIntEndianess(uint value)
-        //{
-        //    return
-        //        ((value & 0x000000ff) << 24) +
-        //        ((value & 0x0000ff00) << 8) +
-        //        ((value & 0x00ff0000) >> 8) +
-        //        ((value & 0xff000000) >> 24);
-        //}
     }
 }

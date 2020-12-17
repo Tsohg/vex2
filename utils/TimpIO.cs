@@ -12,17 +12,13 @@ namespace vex2.utils
         public string bankName;         //timpani_bank's hashed file name.
         public string bankOutputPath;
 
-        private byte mode = 0;          //1 = unpack mode, 2 = repack mode.
-
         private readonly string oggExt = ".ogg";
         private readonly string wavExt = ".wav";
         private readonly string bankExt = ".timpani_bank";
 
-        /// Command Line:
-        ///     vex2 unpack full/path/to/bank full/path/to/output/directory
-        ///     vex2 unpack all full/path/to/input/directory full/path/to/output/directory
-        ///     vex2 repack full/path/to/extracted/bank/dir full/path/to/output/directory
-        ///     vex2 repack all full/path/to/bank/directory full/path/to/output/directory
+        public delegate TimpaniBank ReadTimpaniDel();
+        public ReadTimpaniDel ReadBank;
+        TimpaniBankBuilder builder;
 
         public TimpIO(string inputPath, string outputPath)
         {
@@ -39,7 +35,8 @@ namespace vex2.utils
 
                 if (!Directory.Exists(bankOutputPath))
                     Directory.CreateDirectory(bankOutputPath);
-                mode = 1;
+                builder = new TimpaniBankBuilder(this);
+                ReadBank = builder.BuildFromTimpaniBank;
             }
             else throw new Exception("File does not exist for unpacking.");
         }
@@ -48,13 +45,8 @@ namespace vex2.utils
         {
             bankName = GetBankNameFromDirectoryPath(inputPath);
             bankOutputPath = outputPath + bankName + bankExt;
-            mode = 2;
-        }
-
-        private void AssertModeSet()
-        {
-            if (mode == 0)
-                throw new Exception("You must set TimpIO to either UnpackMode or RepackMode before calling this function.");
+            builder = new TimpaniBankBuilder(this);
+            ReadBank = builder.BuildFromExtracted;
         }
 
         private string GetBankNameFromDirectoryPath(string path)
@@ -69,20 +61,11 @@ namespace vex2.utils
 
         public TimpaniBank ReadTimpaniBank()
         {
-            AssertModeSet();
-
-            TimpaniBankBuilder builder = new TimpaniBankBuilder(this);
-
-            if (mode == 1)
-                return builder.BuildFromTimpaniBank();
-            else
-                return builder.BuildFromExtracted();
+            return ReadBank();
         }
 
         public void WriteTimpaniBank(TimpaniBank tb)
         {
-            AssertModeSet();
-
             BinaryWriter bw = new BinaryWriter(new FileStream(outputPath + bankName + bankExt, FileMode.Create));
 
             for (int i = 0; i < tb.tbcEntries.Length; i++) //write the table of contents
@@ -99,8 +82,6 @@ namespace vex2.utils
 
         public void ExtractTimpaniBank(TimpaniBank tb)
         {
-            AssertModeSet();
-
             for (int i = 0; i < tb.tbcEntries.Length; i++)
             {
                 string path = bankOutputPath + @"/" + tb.tbcEntries[i].name.ToString("X");
