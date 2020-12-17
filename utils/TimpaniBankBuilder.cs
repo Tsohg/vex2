@@ -16,6 +16,7 @@ namespace vex2.utils
         }
 
         /// <summary>
+        /// [REFACTOR]
         /// Returns a completed TimpaniBank object from an input timpani_bank file.
         /// </summary>
         /// <returns></returns>
@@ -23,9 +24,9 @@ namespace vex2.utils
         {
             offset = 0;
             TimpaniBank tb = new TimpaniBank();
-            BinaryReader br = new BinaryReader(new FileStream(io.inFilePath, FileMode.Open));
+            BinaryReader br = new BinaryReader(new FileStream(io.inputPath, FileMode.Open));
 
-            ulong tbcCount = ReadULong(br);
+            ulong tbcCount = ReadULong(br); //[EXTRACT] We are building the table of contents here. Move to another function and return entries.
             TableOfContentsEntry[] entries = new TableOfContentsEntry[tbcCount];
 
             for (ulong i = 0; i < tbcCount; i++)
@@ -68,14 +69,13 @@ namespace vex2.utils
         /// <returns></returns>
         public TimpaniBank BuildFromExtracted()
         {
-            string[] paths = io.GetExtractedPaths();
+            string[] paths = Directory.GetFiles(io.inputPath);
             TimpaniBank tb = new TimpaniBank();
 
             for (ulong i = 0; i < (ulong)paths.LongLength; i++)
             {
                 byte[] soundData = File.ReadAllBytes(paths[i]);
                 TimpaniBankFile tbf = new TimpaniBankFile(soundData, true);
-                
 
                 ulong name = ulong.Parse(Path.GetFileNameWithoutExtension(paths[i]), System.Globalization.NumberStyles.HexNumber);
                 TableOfContentsEntry tbce = new TableOfContentsEntry(name);

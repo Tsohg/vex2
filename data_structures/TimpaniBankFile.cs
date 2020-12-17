@@ -40,14 +40,15 @@ namespace vex2.data_structures
         public bool isWav;
 
         /// <summary>
+        /// [REFACTOR]
         /// A new timpani bank file extracted from the timpani bank.
         /// </summary>
         /// <param name="rawFile"></param>
-        public TimpaniBankFile(byte[] rawFile, bool buildFromExtracted)
+        public TimpaniBankFile(byte[] rawFile, bool buildFromExtracted) //might want to extract boolean into function call.
         {
             if (buildFromExtracted)
-                FromExtracted(rawFile);
-            else
+                FromExtracted(rawFile); //[REFACTOR W/ BELOW] Probably has some commonality with what we are extracting below.
+            else //[EXTRACT] extract to new method that returns metadata.
             {
                 rawMetaData = rawFile.Take(68).ToArray();
                 rawSoundFile = rawFile.Skip(68).Take(rawFile.Length - 68).ToArray();
@@ -80,6 +81,7 @@ namespace vex2.data_structures
         }
 
         /// <summary>
+        /// [REFACTOR]
         /// A new timpani bank from a given metaData object and a given .wav or .ogg sound file.
         /// Offset is set within the timpani_bank object. Length must be set here.
         /// </summary>
@@ -89,13 +91,13 @@ namespace vex2.data_structures
         {
             metaData = BuildNewMetaData();
             string capPattern = Encoding.ASCII.GetString(rawSound.Take(4).ToArray());
-            if (capPattern == "RIFF")
+            if (capPattern == "RIFF")//[EXTRACT]
             {
                 byte[] wavHeader = rawSound.Take(44).ToArray(); //44 bytes = a wav header.
                 metaData = WavHeaderToMetaData(metaData, wavHeader); //set the metadata appropriately for a .wav file except the unid bytes
                 rawSound = rawSound.Skip(44).Take(rawSound.Length - 44).ToArray(); //Everything beyond 44 bytes should be the raw sound data.
             }
-            else
+            else//[EXTRACT]
             {
                 //granulePos set here if ogg. it is the last page
                 for(int i = 0; i < rawSound.Length; i++)

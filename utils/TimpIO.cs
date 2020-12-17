@@ -5,103 +5,85 @@ using System.Text;
 
 namespace vex2.utils
 {
-    public enum ReadMode
-    {
-        FromBank, //Reads from an original timpani_bank file.
-        FromExtracted //Reads a timpani_bank from it's extracted contents. Used for replacing files in the bank.
-    };
-
-    /// <summary>
-    /// File Structure ->
-    /// 
-    /// outDirPath
-    ///     Bank1Name
-    ///         Extracted
-    ///         Metadata
-    ///     Bank2Name
-    ///         Extracted
-    ///         Metadata
-    ///     Bank3Name
-    ///     ...
-    ///     
-    /// </summary>
-
     class TimpIO
     {
-        //directory paths
-        public readonly string inFilePath;              // input file
-        public readonly string outDirPath;              // output directory
-        public readonly string metaDirPath;             // metadata output directory
-        public readonly string extractedDirPath;  // path to extracted sound files.
+        public string inputPath;
+        public string outputPath;
+        public string bankName;         //timpani_bank's hashed file name.
+        public string bankOutputPath;
 
-        //file extensions
-        //private readonly string tbcExt = ".tbc";    // table of contents
-        private readonly string metaExt = ".meta";      // metadata
+        private byte mode = 0;          //1 = unpack mode, 2 = repack mode.
+
         private readonly string oggExt = ".ogg";
         private readonly string wavExt = ".wav";
         private readonly string bankExt = ".timpani_bank";
 
-        //directory names
-        private readonly string metaDirName = @"/metadata/";
-        private readonly string extractedDirName = @"/extracted/";
+        /// Command Line:
+        ///     vex2 unpack full/path/to/bank full/path/to/output/directory
+        ///     vex2 unpack all full/path/to/input/directory full/path/to/output/directory
+        ///     vex2 repack full/path/to/extracted/bank/dir full/path/to/output/directory
+        ///     vex2 repack all full/path/to/bank/directory full/path/to/output/directory
 
-        private readonly string bankName;   //timpani_bank's hashed file name.
-        private readonly string mainOutputDirPath;
-
-        public TimpIO(string inFilePath, string outDirPath, bool repackAll)
+        public TimpIO(string inputPath, string outputPath)
         {
-            this.inFilePath = inFilePath;
-            this.outDirPath = outDirPath;
-
-            bankName = Path.GetFileNameWithoutExtension(inFilePath);
-            if (bankName == "") //Will be blank if inFilePath is actually a directory used for repacking.
-            {
-                string[] path = Path.GetDirectoryName(inFilePath).Split(Path.DirectorySeparatorChar);
-                bankName = path[path.Length - 1];
-            }
-            mainOutputDirPath = outDirPath + bankName; //without "/"
-            metaDirPath = mainOutputDirPath + metaDirName;
-
-            if(repackAll)
-                extractedDirPath = inFilePath + extractedDirName;
-            else
-                extractedDirPath = mainOutputDirPath + extractedDirName;
-
-            if (!Directory.Exists(outDirPath))
-                Directory.CreateDirectory(outDirPath);
-
-            if (!repackAll)
-            {
-                if (!Directory.Exists(mainOutputDirPath))
-                    Directory.CreateDirectory(mainOutputDirPath);
-
-                if (!Directory.Exists(metaDirPath))
-                    Directory.CreateDirectory(metaDirPath);
-
-                if (!Directory.Exists(extractedDirPath))
-                    Directory.CreateDirectory(extractedDirPath);
-            }
+            this.inputPath = inputPath;
+            this.outputPath = outputPath;
         }
 
-        public TimpaniBank ReadTimpaniBank(ReadMode mode)
+        public void UnpackMode()
         {
+            if (File.Exists(inputPath))
+            {
+                bankName = Path.GetFileNameWithoutExtension(inputPath);
+                bankOutputPath = outputPath + bankName;
+
+                if (!Directory.Exists(bankOutputPath))
+                    Directory.CreateDirectory(bankOutputPath);
+                mode = 1;
+            }
+            else throw new Exception("File does not exist for unpacking.");
+        }
+
+        public void RepackMode()
+        {
+            bankName = GetBankNameFromDirectoryPath(inputPath);
+            bankOutputPath = outputPath + bankName + bankExt;
+            mode = 2;
+        }
+
+        private void AssertModeSet()
+        {
+            if (mode == 0)
+                throw new Exception("You must set TimpIO to either UnpackMode or RepackMode before calling this function.");
+        }
+
+        private string GetBankNameFromDirectoryPath(string path)
+        {
+            if (Directory.Exists(inputPath))
+            {
+                string[] splitPath = Path.GetDirectoryName(path + @"\\").Split(Path.DirectorySeparatorChar);
+                return splitPath[splitPath.Length - 1]; //directory name as bankname.
+            }
+            else throw new Exception("Input Directory not found.");
+        }
+
+        public TimpaniBank ReadTimpaniBank()
+        {
+            AssertModeSet();
+
             TimpaniBankBuilder builder = new TimpaniBankBuilder(this);
 
-            if (mode == ReadMode.FromBank)
+            if (mode == 1)
                 return builder.BuildFromTimpaniBank();
             else
                 return builder.BuildFromExtracted();
         }
 
-        public string[] GetExtractedPaths()
-        {
-            return Directory.GetFiles(extractedDirPath);
-        }
-
-        //Rewrites the entire timpani bank to the path.
         public void WriteTimpaniBank(TimpaniBank tb)
         {
-            BinaryWriter bw = new BinaryWriter(new FileStream(outDirPath + bankName + bankExt, FileMode.Create));
+            AssertModeSet();
+
+            BinaryWriter bw = new BinaryWriter(new FileStream(outputPath + bankName + bankExt, FileMode.Create));
 
             for (int i = 0; i < tb.tbcEntries.Length; i++) //write the table of contents
                 bw.Write(tb.tbcEntries[i].GetRawTbce());
@@ -110,57 +92,23 @@ namespace vex2.utils
                 bw.Write((byte)0);
 
             for (int i = 0; i < tb.bankFiles.Length; i++) //write each bankfile
-                bw.Write(tb.bankFiles[i].GetRawBankFile()); //bug is here?
+                bw.Write(tb.bankFiles[i].GetRawBankFile());
 
             bw.Close();
         }
 
         public void ExtractTimpaniBank(TimpaniBank tb)
         {
-            WriteMetadata(tb);
-            WriteExtracted(tb);
-        }
+            AssertModeSet();
 
-        private void WriteExtracted(TimpaniBank tb)
-        {
-            for(int i = 0; i < tb.tbcEntries.Length; i++)
+            for (int i = 0; i < tb.tbcEntries.Length; i++)
             {
-                string path = extractedDirPath + tb.tbcEntries[i].name.ToString("X");
+                string path = bankOutputPath + @"/" + tb.tbcEntries[i].name.ToString("X");
                 if (tb.bankFiles[i].isWav)
                 {
                     path += wavExt;
-
-                    //wav header code sourced and modified from bitsquid toolchain.
-                    //write wav header then raw soundfile.
                     BinaryWriter bw = new BinaryWriter(new FileStream(path, FileMode.Create));
-
-                    byte[] buffer = Encoding.ASCII.GetBytes("RIFF");
-                    bw.Write(buffer);
-
-                    bw.Write(tb.bankFiles[i].metaData.chunkSize + 36); //metaData.next is the same as .wav's "bytes" part of the header.
-
-                    buffer = Encoding.ASCII.GetBytes("WAVEfmt ");
-                    bw.Write(buffer);
-
-                    bw.Write(16);
-                    bw.Write((short)1);
-                    bw.Write((short)tb.bankFiles[i].metaData.channels);
-                    bw.Write(tb.bankFiles[i].metaData.sampleRate);
-
-                    buffer = BitConverter.GetBytes((int)(tb.bankFiles[i].metaData.sampleRate * tb.bankFiles[i].metaData.channels * (tb.bankFiles[i].metaData.wavBits / 8))); //meta.bits/8 = sampleLength
-                    bw.Write(buffer);
-
-                    buffer = BitConverter.GetBytes((short)(tb.bankFiles[i].metaData.channels * (tb.bankFiles[i].metaData.wavBits / 8)));
-                    bw.Write(buffer);
-
-                    bw.Write((short)tb.bankFiles[i].metaData.wavBits);
-
-                    buffer = Encoding.ASCII.GetBytes("data");
-                    bw.Write(buffer);
-
-                    bw.Write(tb.bankFiles[i].metaData.chunkSize);
-                    bw.Write(tb.bankFiles[i].rawSoundFile);
-                    bw.Close();
+                    WriteWavFile(bw, tb.bankFiles[i]);
                 }
                 else
                 {
@@ -170,10 +118,38 @@ namespace vex2.utils
             }
         }
 
-        private void WriteMetadata(TimpaniBank tb)
+        private void WriteWavFile(BinaryWriter bw, TimpaniBankFile bankFile)
         {
-            for(int i = 0; i < tb.tbcEntries.Length; i++)
-                File.WriteAllBytes(metaDirPath + tb.tbcEntries[i].name.ToString("X") + metaExt, tb.bankFiles[i].MarshalMetaData()); //write metadata to file.
+            //wav header code sourced and modified from bitsquid toolchain.
+            //write wav header then raw soundfile.
+
+            byte[] buffer = Encoding.ASCII.GetBytes("RIFF");
+            bw.Write(buffer);
+
+            bw.Write(bankFile.metaData.chunkSize + 36); //metaData.next is the same as .wav's "bytes" part of the header.
+
+            buffer = Encoding.ASCII.GetBytes("WAVEfmt ");
+            bw.Write(buffer);
+
+            bw.Write(16);
+            bw.Write((short)1);
+            bw.Write((short)bankFile.metaData.channels);
+            bw.Write(bankFile.metaData.sampleRate);
+
+            buffer = BitConverter.GetBytes((int)(bankFile.metaData.sampleRate * bankFile.metaData.channels * (bankFile.metaData.wavBits / 8))); //meta.bits/8 = sampleLength
+            bw.Write(buffer);
+
+            buffer = BitConverter.GetBytes((short)(bankFile.metaData.channels * (bankFile.metaData.wavBits / 8)));
+            bw.Write(buffer);
+
+            bw.Write((short)bankFile.metaData.wavBits);
+
+            buffer = Encoding.ASCII.GetBytes("data");
+            bw.Write(buffer);
+
+            bw.Write(bankFile.metaData.chunkSize);
+            bw.Write(bankFile.rawSoundFile);
+            bw.Close();
         }
     }
 }
