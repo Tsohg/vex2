@@ -48,7 +48,7 @@ namespace vex2.data_structures
         public TableOfContentsEntry[] tbcEntries;   //All table of contents entries from/for the bank.
         public TimpaniBankFile[] bankFiles;         //All (metadata/soundfiledata) bank files from/for the bank.
         private ulong index;                        //Current index for adding new bankfiles.
-        private uint offset;                        //Current byte offset to place the bankfile at. //BUG: seems to be off by 24 each time?
+        private uint offset;                        //Current byte offset to place the bankfile at.
 
         /// <summary>
         /// Adds a timpani bank file and its associated table of contents entry to the timpani_bank file.
